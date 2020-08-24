@@ -30,13 +30,14 @@ import qualified Data.Vinyl.Functor as V
 --   l1 ++ '[] = l1
 --   (x ': xs) ++ l2 = x ': (xs ++ l2)
 
-
 -- | 'Flow' represents kleisli arrows from a list of inputs 'as' to a list
 -- of outputs 'bs' under a context 'm'.
+-- TODO: Add a 'p' parameter for the 'Pure' ctor.
 data Flow m as bs where
     -- | This is the main constructor for injecting kleisli arrows into
     -- the flow type.
     Pure
+        -- p as bs
         :: (HList as -> m (HList bs))
         -> Flow m as bs
     -- | This Identity is conceptually identical with 'Pure pure', but
@@ -62,7 +63,6 @@ data Flow m as bs where
         -> Flow m (xs ++ xs') (ys ++ ys')
 
 {-
-                            /----- f ------ f'
 -- f0 -- f1 -- Duplicate -==  Zip     Zip
                             \----- g ------ g'
 
@@ -111,6 +111,9 @@ interpret flow =
         Discard     -> pure . const RNil
         Zip f g     -> interpret f `zipHList` interpret g
 
+-- showTypeList :: (HList as -> m (HList bs)) -> String
+-- showTypeList = showList @as <> " -> " <> showList @bs
+
 duplicateHList :: HList as -> HList (as ++ as)
 duplicateHList xs = xs <+> xs
 
@@ -130,17 +133,15 @@ zipHList f g hlist = do
 -- fst' :: forall m as bs. Flow m (as ++ bs) as
 -- fst' = Zip (Identity :: Flow m as as) (Discard :: Flow m bs '[])
 
--- snd' :: forall m as bs. Flow m (as ++ bs) bs
--- snd' = Zip (Discard :: Flow m as '[]) (Identity :: Flow m bs bs)
+snd' :: forall as bs m. Split as bs (as ++ bs) => Flow m (as ++ bs) bs
+snd' = Zip (Discard :: Flow m as '[]) (Identity :: Flow m bs bs)
 
 -- | Composition of functions as I require for my DSL.
 (~>)
     :: forall m a b c t
-    .  Applicative m
-    => Split (a ++ b) (a ++ b) ((a ++ b) ++ (a ++ b))
+    .  Split (a ++ b) (a ++ b) ((a ++ b) ++ (a ++ b))
     => Split a a (a ++ a)
     => Flow m a (t ': b)
-             -- ^ try replacing ': with ++
     -> Flow m (a ++ b) c
     -> Flow m a (a ++ b ++ c)
 left ~> right =
@@ -160,7 +161,7 @@ left ~> right =
             (Zip
                 (Identity @m @a)
                 -- Flow m a a
-                (Pure go
+                ( snd' @('[ t ])
                     -- Flow m (t ': b) b
                      `Compose`
                           left
@@ -173,13 +174,13 @@ left ~> right =
                 (Duplicate @m @a)
                 -- Flow m a (a ++ a)
             -- Flow a (a ++ b)
-  where
-    go :: HList (t ': b) -> m (HList b)
-    go (_ :& rest) = pure rest
-
 
 -------------------------------------------------------------------------------
 -- Examples
+
+-- data AppF a
+--    = GetWhateverFromDb
+--    | ...
 
 step1 :: Flow Maybe '[Int] '[Int, String]
 step1 =
