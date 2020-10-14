@@ -213,5 +213,45 @@ step4 =
 step14 :: Flow Maybe '[Int] '[Int, String, Bool, Int, String]
 step14 = step1 ~> step2 ~> step3 ~> step4
 
+wat :: Flow m outputs (inputs ++ outputs)
+wat = error "not implemented"
+
 result :: Maybe (HList '[Int, String, Bool, Int, String])
 result = interpret step14 (pure 1 :& RNil)
+
+-------------------------------------------------------------------------------
+-- Example 2 - Divergence
+ex2_1 :: Flow Maybe '[Int] '[Int, String]
+ex2_1 =
+    Pure
+        $ \(V.Identity i :& _) ->
+            Just $ pure i :& pure (show i <> "!") :& RNil
+
+ex2_2a :: Flow Maybe '[Int, String] '[Bool]
+ex2_2a =
+    Pure
+        $ \(_ :& V.Identity s :& _) ->
+            Just $ pure (s == "1!") :& RNil
+
+ex2_2b :: Flow Maybe '[Int, String] '[Char]
+ex2_2b =
+    Pure
+        $ \(_ :& V.Identity s :& _) ->
+            Just $ pure (head s) :& RNil
+
+ex2_3 :: Flow Maybe '[Bool, Char] '[String]
+ex2_3 =
+    Pure
+        $ \(V.Identity b :& V.Identity c :& _) ->
+            Just $ pure (c : show b) :& RNil
+
+ex2 :: Flow Maybe '[Int] '[String]
+ex2 =
+    ex2_3
+        `Compose`
+    Zip ex2_2a ex2_2b
+        `Compose`
+            (Duplicate `Compose` ex2_1)
+
+ex2_interpret :: Int -> Maybe (HList '[String])
+ex2_interpret i = interpret ex2 (pure i :& RNil)
