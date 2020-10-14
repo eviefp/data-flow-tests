@@ -69,6 +69,23 @@ data DataFlow t m b where
         -> DataFlow xs m b
         -> DataFlow (b ': xs) m c
 
+data Flow p i o where
+    Pure
+        :: p i o -> Flow p i o
+    Split
+        :: Flow p i (Either oa ob)
+        -> Flow p oa o1
+        -> Flow p ob o2
+        -> Flow p i (o1, o2)
+    Parallel
+        :: Flow p i o
+        -> Flow p o a
+        -> Flow p o b
+        -> Flow p i (a, b)
+    Join
+        :: Flow p i o1
+        -> Flow p i o2
+        -> Flow p i (o1, o2)
 -- data MultiFlow where
 --     Split
 --         :: DataFlow (output ': xs) m output b

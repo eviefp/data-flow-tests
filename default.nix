@@ -1,5 +1,5 @@
 let
-  sources = import ./nix/sources.nix;
-  tooling = import sources.nix-tooling;
+  # sources = import ./nix/sources.nix;
+  tooling = import ../nix-tooling/default.nix;
 in
   tooling
